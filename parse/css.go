@@ -3,7 +3,6 @@ package parse
 import (
 	"fmt"
 	// "io/ioutil"
-	"encoding/json"
 	"github.com/markhayden/bblwrap/util"
 	"regexp"
 	"sort"
@@ -24,11 +23,48 @@ func StartCss() {
 			text-align:center;
 		}`
 
-	one := prettyStyles(sample)
+	sample2 := `body {
+			font: 80% arial, helvetica, sans-serif;
+		}
+
+		h1 {
+			font-size: 1.5em;
+		}
+
+		h2 {
+			font-size: 1em;
+		}
+
+		code {
+			font-family: courier;
+		}
+
+		#example1, #example2 {
+			background: #ccc;
+			border: 2px solid black;
+		}
+
+		span {
+			background: white;
+			display: block;
+			border: 0.5em solid red;
+			padding: 1em;
+			margin: 0.5em;
+		}
+
+		span.altern8 {
+			background: #5b5;
+		}
+
+		#example2 span {
+			display: inline;
+		}`
+
+	one := prettyStyles(sample2)
 	two := parseStyles(one)
 
-	fltB, _ := json.MarshalIndent(two, "", "	")
-	fmt.Println(string(fltB))
+	fmt.Sprintf("%v", sample)
+	fmt.Println(util.PrettyJson(two))
 }
 
 // loadLocalFile loads content from local path and returns as cleaned up string
@@ -107,7 +143,7 @@ func parseStyles(subject string) []Style {
 		for _, sel := range multiSelSplit {
 			s := Style{
 				Origin:          fmt.Sprintf("%s}", val),
-				RawSelectors:    util.LeadingWhiteSpace(sel),
+				RawSelectors:    strings.TrimSpace(sel),
 				RawDeclarations: selDecSplit[1],
 			}
 
@@ -176,8 +212,8 @@ func (s *Style) parseSelectors() error {
 
 		s := Selector{
 			Origin: o,
-			Type:   sType,
-			Value:  sVal,
+			Type:   strings.TrimSpace(sType),
+			Value:  strings.TrimSpace(sVal),
 		}
 
 		selectors = append(selectors, s)
@@ -221,8 +257,8 @@ func (s *Style) parseDeclarations() error {
 
 		d := Declaration{
 			Origin:    o,
-			Property:  b[0],
-			Value:     b[1],
+			Property:  strings.TrimSpace(b[0]),
+			Value:     strings.TrimSpace(b[1]),
 			Important: important.MatchString(o),
 		}
 
