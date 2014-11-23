@@ -60,10 +60,10 @@ func StartCss() {
 			display: inline;
 		}`
 
-	one := prettyStyles(sample2)
+	one := prettyStyles(sample)
 	two := parseStyles(one)
 
-	fmt.Sprintf("%v", sample)
+	fmt.Sprintf("%v", sample2)
 	fmt.Println(util.PrettyJson(two))
 }
 
@@ -104,6 +104,7 @@ type Style struct {
 type Selector struct {
 	Origin string
 	Type   string
+	Key    string
 	Value  string
 }
 
@@ -180,6 +181,7 @@ func (s *Style) parseSelectors() error {
 	attr := regexp.MustCompile(`\[`)
 	id := regexp.MustCompile(`^#`)
 	class := regexp.MustCompile(`^\.`)
+	// https://docs.google.com/a/markhayden.me/spreadsheets/d/19eMZ9bPB7rDsWnT0UZQFO5q7UxUXPjmhvepR7Edf--Y/edit#gid=0
 
 	var selectors []Selector
 	for _, o := range split {
@@ -189,19 +191,22 @@ func (s *Style) parseSelectors() error {
 		}
 
 		// set empty type
-		var sType, sVal string
+		var sType, sKey, sVal string
 
 		switch {
 		case attr.MatchString(o):
 			sType = "attr"
+			sKey = "need to parse key"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 1000
 		case id.MatchString(o):
 			sType = "id"
+			sKey = "id"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 100
 		case class.MatchString(o):
 			sType = "class"
+			sKey = "class"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 10
 		default:
@@ -213,6 +218,7 @@ func (s *Style) parseSelectors() error {
 		s := Selector{
 			Origin: o,
 			Type:   strings.TrimSpace(sType),
+			Key:    strings.TrimSpace(sKey),
 			Value:  strings.TrimSpace(sVal),
 		}
 
@@ -294,4 +300,4 @@ type styleBySpecificity []Style
 
 func (s styleBySpecificity) Len() int           { return len(s) }
 func (s styleBySpecificity) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s styleBySpecificity) Less(i, j int) bool { return s[i].Specificity > s[j].Specificity }
+func (s styleBySpecificity) Less(i, j int) bool { return s[i].Specificity < s[j].Specificity }
