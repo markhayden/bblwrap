@@ -5,5 +5,5 @@ import (
 )
 
 func TestCss(t *testing.T) {
-	StartCss()
+	Kickoff()
 }

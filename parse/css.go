@@ -9,114 +9,11 @@ import (
 	"strings"
 )
 
-func StartCss() {
-	sample := `
-		body #taco .wee someting[name="adf"]{
-			background:#F00;
-		}
-		a b, d c{
-			background:#000;
-		};
-		.parent a{
-			background:#666;
-			color:#F00 !important;
-			text-align:center;
-		}`
-
-	sample2 := `body {
-			font: 80% arial, helvetica, sans-serif;
-		}
-
-		h1 {
-			font-size: 1.5em;
-		}
-
-		h2 {
-			font-size: 1em;
-		}
-
-		code {
-			font-family: courier;
-		}
-
-		#example1, #example2 {
-			background: #ccc;
-			border: 2px solid black;
-		}
-
-		span {
-			background: white;
-			display: block;
-			border: 0.5em solid red;
-			padding: 1em;
-			margin: 0.5em;
-		}
-
-		span.altern8 {
-			background: #5b5;
-		}
-
-		#example2 span {
-			display: inline;
-		}`
-
-	one := prettyStyles(sample)
-	two := parseStyles(one)
-
-	fmt.Sprintf("%v", sample2)
-	fmt.Println(util.PrettyJson(two))
-}
-
-// loadLocalFile loads content from local path and returns as cleaned up string
-// func loadLocalFile(tmp string) (string, error) {
-// 	content, err := ioutil.ReadFile(tmp)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	bodyPretty := util.PrepHtmlForJson(string(content), false)
-// 	return bodyPretty, nil
-// }
-
-// func matchRegex(match, body string) string {
-// 	var replaced []Styles
-// 	regex := `<link rel=\"stylesheet\" type=\"text/css\" href=\"(?P<path>[A-Za-z0-9<>\&\/.;:\-_,= ]+)\">`
-
-// 	r := regexp.MustCompile(regex)
-
-// 	// find all external styles
-// 	var needles [][]string
-// 	if len(r.FindAllStringSubmatch(body, -1)) > 1 {
-// 		needles = r.FindAllStringSubmatch(body, -1)
-// 	}
-
-// 	return body, replaced, nil
-// }
-
-type Style struct {
-	Origin          string
-	RawSelectors    string
-	RawDeclarations string
-	Selectors       []Selector
-	Declarations    []Declaration
-	Specificity     int
-}
-
-type Selector struct {
-	Origin string
-	Type   string
-	Key    string
-	Value  string
-}
-
-type Declaration struct {
-	Origin    string
-	Property  string
-	Value     string
-	Important bool
-}
-
 // praseStyles transforms a full string of styles into individual definitions
 func parseStyles(subject string) []Style {
+	// clean up the string
+	subject = prettyStyles(subject)
+
 	// split everything up into a massive slice for processing
 	// allSplit := regexp.MustCompile("{|}").Split(subject, -1)
 	allSplit := strings.Split(subject, "}")
@@ -181,6 +78,7 @@ func (s *Style) parseSelectors() error {
 	attr := regexp.MustCompile(`\[`)
 	id := regexp.MustCompile(`^#`)
 	class := regexp.MustCompile(`^\.`)
+	elementClass := regexp.MustCompile(`^\S+\.\S+$`)
 	// https://docs.google.com/a/markhayden.me/spreadsheets/d/19eMZ9bPB7rDsWnT0UZQFO5q7UxUXPjmhvepR7Edf--Y/edit#gid=0
 
 	var selectors []Selector
@@ -191,19 +89,23 @@ func (s *Style) parseSelectors() error {
 		}
 
 		// set empty type
-		var sType, sKey, sVal string
+		var sType, sKey, sElement, sVal string
 
 		switch {
 		case attr.MatchString(o):
-			sType = "attr"
-			sKey = "need to parse key"
-			sVal = util.StripFirst(o)
+			sType, sElement, sKey, sVal = parseAdvancedAttrSelector(o)
 			specificity = specificity + 1000
 		case id.MatchString(o):
 			sType = "id"
 			sKey = "id"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 100
+		case elementClass.MatchString(o):
+			sType = "class"
+			sKey = "class"
+			sElement = strings.Split(o, ".")[0]
+			sVal = strings.Split(o, ".")[1]
+			specificity = specificity + 11
 		case class.MatchString(o):
 			sType = "class"
 			sKey = "class"
@@ -211,16 +113,20 @@ func (s *Style) parseSelectors() error {
 			specificity = specificity + 10
 		default:
 			sType = "element"
+			sKey = o
 			sVal = o
 			specificity = specificity + 1
 		}
 
 		s := Selector{
-			Origin: o,
-			Type:   strings.TrimSpace(sType),
-			Key:    strings.TrimSpace(sKey),
-			Value:  strings.TrimSpace(sVal),
+			Origin:  o,
+			Type:    strings.TrimSpace(sType),
+			Key:     strings.TrimSpace(sKey),
+			Element: strings.TrimSpace(sElement),
+			Value:   strings.TrimSpace(sVal),
 		}
+
+		//fmt.Println(util.PrettyJson(s))
 
 		selectors = append(selectors, s)
 	}
@@ -228,10 +134,55 @@ func (s *Style) parseSelectors() error {
 	// set selectors
 	s.Selectors = selectors
 
+	// set depth
+	s.Depth = len(s.Selectors)
+
 	// set specificity score
 	s.Specificity = specificity
 
 	return nil
+}
+
+func parseAdvancedAttrSelector(s string) (string, string, string, string) {
+	var sType, sElement, sKey, sVal string
+
+	attrElementValue, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)=\"(?P<value>[a-zA-Z0-9\-\_]+)\"\]`)
+	attrElement, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)\]`)
+
+	// check if we have both a attribute and a value
+	if attrElementValue.MatchString(s) {
+		parsed := attrElementValue.FindStringSubmatch(s)
+		if len(parsed) < 4 {
+			fmt.Println("Failed to parse advanced selector.")
+			return sType, sElement, sKey, sVal
+		}
+
+		sElement = parsed[1]
+		sKey = parsed[2]
+		sVal = parsed[3]
+	} else {
+		// only have an attribute so run through defaults
+		parsed := attrElement.FindStringSubmatch(s)
+		if len(parsed) < 3 {
+			fmt.Println("Failed to parse advanced selector (key only).")
+			return sType, sElement, sKey, sVal
+		}
+
+		sElement = parsed[1]
+		sKey = parsed[2]
+	}
+
+	// most likely it will be an attr tag but if its id or class, smack them with a stick for yucky code and handle it
+	switch {
+	case sKey == "class":
+		sType = "class"
+	case sKey == "id":
+		sType = "id"
+	default:
+		sType = "attr"
+	}
+
+	return sType, sElement, sKey, sVal
 }
 
 // parseDeclarations handles parsing the declaration string to a struct
@@ -301,3 +252,28 @@ type styleBySpecificity []Style
 func (s styleBySpecificity) Len() int           { return len(s) }
 func (s styleBySpecificity) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s styleBySpecificity) Less(i, j int) bool { return s[i].Specificity < s[j].Specificity }
+
+// loadLocalFile loads content from local path and returns as cleaned up string
+// func loadLocalFile(tmp string) (string, error) {
+// 	content, err := ioutil.ReadFile(tmp)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	bodyPretty := util.PrepHtmlForJson(string(content), false)
+// 	return bodyPretty, nil
+// }
+
+// func matchRegex(match, body string) string {
+// 	var replaced []Styles
+// 	regex := `<link rel=\"stylesheet\" type=\"text/css\" href=\"(?P<path>[A-Za-z0-9<>\&\/.;:\-_,= ]+)\">`
+
+// 	r := regexp.MustCompile(regex)
+
+// 	// find all external styles
+// 	var needles [][]string
+// 	if len(r.FindAllStringSubmatch(body, -1)) > 1 {
+// 		needles = r.FindAllStringSubmatch(body, -1)
+// 	}
+
+// 	return body, replaced, nil
+// }
