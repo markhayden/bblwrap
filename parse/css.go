@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"errors"
+	//"reflect"
 )
 
 // praseStyles transforms a full string of styles into individual definitions
@@ -19,7 +21,7 @@ func parseStyles(subject string) []Style {
 	allSplit := strings.Split(subject, "}")
 
 	var parsed []Style
-	for _, val := range allSplit {
+	for pos, val := range allSplit {
 		// if the split results in any empty strings skip them
 		if val == "" {
 			continue
@@ -32,6 +34,8 @@ func parseStyles(subject string) []Style {
 		}
 
 		// handle multiple sets of selectors
+		//fmt.Println(selDecSplit[0])
+
 		multiSelSplit := strings.Split(selDecSplit[0], ",")
 		if len(multiSelSplit) == 0 {
 			fmt.Println("More Invalid CSS")
@@ -43,6 +47,7 @@ func parseStyles(subject string) []Style {
 				Origin:          fmt.Sprintf("%s}", val),
 				RawSelectors:    strings.TrimSpace(sel),
 				RawDeclarations: selDecSplit[1],
+				Position: pos,
 			}
 
 			err := s.parseSelectors()
@@ -52,7 +57,7 @@ func parseStyles(subject string) []Style {
 
 			err = s.parseDeclarations()
 			if err != nil {
-				fmt.Println("Invalid Declarations")
+				fmt.Printf("Invalid Declaration: %v\n", err)
 			}
 
 			parsed = append(parsed, s)
@@ -61,6 +66,9 @@ func parseStyles(subject string) []Style {
 
 	// sort styles by specificity
 	sort.Sort(styleBySpecificity(parsed))
+
+	// dedupe the final parsed styles and alert of potential code goofs
+	dedupeStyles(parsed)
 
 	return parsed
 }
@@ -201,9 +209,14 @@ func (s *Style) parseDeclarations() error {
 		}
 
 		// split properties from values
-		b := strings.Split(o, ":")
+		b := strings.SplitN(o, ":", 2)
 		if len(b) != 2 {
-			fmt.Println("Invalid Declaration")
+			msg := fmt.Sprintf("Invalid declaration: %v", o)
+			if err := addToLog(msg); err != nil {
+				fmt.Println(err)
+			}
+
+			return errors.New(msg)
 		}
 
 		// make sure the value doesn't contains important
@@ -214,8 +227,8 @@ func (s *Style) parseDeclarations() error {
 
 		d := Declaration{
 			Origin:    o,
-			Property:  strings.TrimSpace(b[0]),
-			Value:     strings.TrimSpace(b[1]),
+			Property:  strings.TrimSpace(b[0]), // make sure all properties have white space removed
+			Value:     strings.Replace(strings.TrimSpace(b[1]), "\"", "'", -1), // make sure all values use single quotes and have no white space
 			Important: important.MatchString(o),
 		}
 
@@ -246,6 +259,27 @@ func prettyStyles(subject string) string {
 	return subject
 }
 
+// dedupeStyles does some cleanup on the main style strign to force consistency
+func dedupeStyles(dedupe []Style){
+	// break the styles out into slices by specificity
+	sortMe := map[int][]int{}
+	for _, style := range dedupe{
+		sortMe[style.Specificity] = append(sortMe[style.Specificity], style.Position)
+	}
+	//fmt.Println(sortMe)
+
+	// dedupe the individual slices
+
+	// reconstruct everything after final sort for output
+	// var out []Style
+	// for _, appendMe := range sortMe {
+	// 	sort.Sort(styleByPosition(appendMe))
+	// 	out = append(out, appendMe...)
+	// }
+
+	//return out
+}
+
 // styleBySpecificity handles sorting the slice of styles by specificity descending
 type styleBySpecificity []Style
 
@@ -253,27 +287,9 @@ func (s styleBySpecificity) Len() int           { return len(s) }
 func (s styleBySpecificity) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s styleBySpecificity) Less(i, j int) bool { return s[i].Specificity < s[j].Specificity }
 
-// loadLocalFile loads content from local path and returns as cleaned up string
-// func loadLocalFile(tmp string) (string, error) {
-// 	content, err := ioutil.ReadFile(tmp)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	bodyPretty := util.PrepHtmlForJson(string(content), false)
-// 	return bodyPretty, nil
-// }
+// styleByPosition handles sorting the slice of styles by specificity descending
+type styleByPosition []Style
 
-// func matchRegex(match, body string) string {
-// 	var replaced []Styles
-// 	regex := `<link rel=\"stylesheet\" type=\"text/css\" href=\"(?P<path>[A-Za-z0-9<>\&\/.;:\-_,= ]+)\">`
-
-// 	r := regexp.MustCompile(regex)
-
-// 	// find all external styles
-// 	var needles [][]string
-// 	if len(r.FindAllStringSubmatch(body, -1)) > 1 {
-// 		needles = r.FindAllStringSubmatch(body, -1)
-// 	}
-
-// 	return body, replaced, nil
-// }
+func (s styleByPosition) Len() int           { return len(s) }
+func (s styleByPosition) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s styleByPosition) Less(i, j int) bool { return s[i].Position < s[j].Position }

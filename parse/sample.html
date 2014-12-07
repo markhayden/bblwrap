@@ -1,62 +1,456 @@
-<!-- attr | id | class/pseudoclasses | element/pseudoelements -->
 
+<!DOCTYPE html>
 <html>
 	<head>
-		<style>
-			/*0110*/
-	/*		.parent #fucksauce{
-				color:green;
-			}*/
+		<title>Layout</title>
+		<style type="text/css">
+			body {
+  min-width: 960px;
+}
 
-			/*0010*/
-			.parent{
-				color:#FFF;
-			};
+.container_12 {
+  margin-left: auto;
+  margin-right: auto;
+  width: 960px;
+}
 
-			.shit{
-				color:#F00;
-			}
+.grid_1,
+.grid_2,
+.grid_3,
+.grid_4,
+.grid_5,
+.grid_6,
+.grid_7,
+.grid_8,
+.grid_9,
+.grid_10,
+.grid_11,
+.grid_12 {
+  display: inline;
+  float: left;
+  margin-left: 10px;
+  margin-right: 10px;
+}
 
-			.sean{
-				color:green;
-			}
+.push_1, .pull_1,
+.push_2, .pull_2,
+.push_3, .pull_3,
+.push_4, .pull_4,
+.push_5, .pull_5,
+.push_6, .pull_6,
+.push_7, .pull_7,
+.push_8, .pull_8,
+.push_9, .pull_9,
+.push_10, .pull_10,
+.push_11, .pull_11 {
+  position: relative;
+}
+
+
+.alpha {
+  margin-left: 0;
+}
+
+.omega {
+  margin-right: 0;
+}
 
 
 
-			/*0010*/
-		/*	.taco{
-				color:blue;
-			}*/
+.container_12 .grid_1 {
+  width: 60px;
+}
 
-			/*0001*/
-	/*		div{
-				width:100px;
-				color:red;
-			}*/
+.container_12 .grid_2 {
+  width: 140px;
+}
 
-			div[def="hatesme"]{
-				color:blue;
-			}
+.container_12 .grid_3 {
+  width: 220px;
+}
 
-			div[abc="chris"]{
-				color:#F00;
-			}
+.container_12 .grid_4 {
+  width: 300px;
+}
 
-			/*0012*/
-			/*
-			.fart h1 ~ p
-			.fart div > h1
-			.fart div:nth-child(even)
-			.fart div:nth-of-type(2)
-		    .fart a[href^="/root"]
-		    .fart p::before
-		    .fart p:after*/
+.container_12 .grid_5 {
+  width: 380px;
+}
 
+.container_12 .grid_6 {
+  width: 460px;
+}
+
+.container_12 .grid_7 {
+  width: 540px;
+}
+
+.container_12 .grid_8 {
+  width: 620px;
+}
+
+.container_12 .grid_9 {
+  width: 700px;
+}
+
+.container_12 .grid_10 {
+  width: 780px;
+}
+
+.container_12 .grid_11 {
+  width: 860px;
+}
+
+.container_12 .grid_12 {
+  width: 940px;
+}
+
+.container_12 .prefix_1 {
+  padding-left: 80px;
+}
+
+.container_12 .prefix_2 {
+  padding-left: 160px;
+}
+
+.container_12 .prefix_3 {
+  padding-left: 240px;
+}
+
+.container_12 .prefix_4 {
+  padding-left: 320px;
+}
+
+.container_12 .prefix_5 {
+  padding-left: 400px;
+}
+
+.container_12 .prefix_6 {
+  padding-left: 480px;
+}
+
+.container_12 .prefix_7 {
+  padding-left: 560px;
+}
+
+.container_12 .prefix_8 {
+  padding-left: 640px;
+}
+
+.container_12 .prefix_9 {
+  padding-left: 720px;
+}
+
+.container_12 .prefix_10 {
+  padding-left: 800px;
+}
+
+.container_12 .prefix_11 {
+  padding-left: 880px;
+}
+
+
+
+.container_12 .suffix_1 {
+  padding-right: 80px;
+}
+
+.container_12 .suffix_2 {
+  padding-right: 160px;
+}
+
+.container_12 .suffix_3 {
+  padding-right: 240px;
+}
+
+.container_12 .suffix_4 {
+  padding-right: 320px;
+}
+
+.container_12 .suffix_5 {
+  padding-right: 400px;
+}
+
+.container_12 .suffix_6 {
+  padding-right: 480px;
+}
+
+.container_12 .suffix_7 {
+  padding-right: 560px;
+}
+
+.container_12 .suffix_8 {
+  padding-right: 640px;
+}
+
+.container_12 .suffix_9 {
+  padding-right: 720px;
+}
+
+.container_12 .suffix_10 {
+  padding-right: 800px;
+}
+
+.container_12 .suffix_11 {
+  padding-right: 880px;
+}
+
+
+
+.container_12 .push_1 {
+  left: 80px;
+}
+
+.container_12 .push_2 {
+  left: 160px;
+}
+
+.container_12 .push_3 {
+  left: 240px;
+}
+
+.container_12 .push_4 {
+  left: 320px;
+}
+
+.container_12 .push_5 {
+  left: 400px;
+}
+
+.container_12 .push_6 {
+  left: 480px;
+}
+
+.container_12 .push_7 {
+  left: 560px;
+}
+
+.container_12 .push_8 {
+  left: 640px;
+}
+
+.container_12 .push_9 {
+  left: 720px;
+}
+
+.container_12 .push_10 {
+  left: 800px;
+}
+
+.container_12 .push_11 {
+  left: 880px;
+}
+
+
+
+.container_12 .pull_1 {
+  left: -80px;
+}
+
+.container_12 .pull_2 {
+  left: -160px;
+}
+
+.container_12 .pull_3 {
+  left: -240px;
+}
+
+.container_12 .pull_4 {
+  left: -320px;
+}
+
+.container_12 .pull_5 {
+  left: -400px;
+}
+
+.container_12 .pull_6 {
+  left: -480px;
+}
+
+.container_12 .pull_7 {
+  left: -560px;
+}
+
+.container_12 .pull_8 {
+  left: -640px;
+}
+
+.container_12 .pull_9 {
+  left: -720px;
+}
+
+.container_12 .pull_10 {
+  left: -800px;
+}
+
+.container_12 .pull_11 {
+  left: -880px;
+}
+
+
+
+
+.clear {
+  clear: both;
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+}
+
+
+.clearfix:before,
+.clearfix:after {
+  content: '\0020';
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+}
+
+.clearfix:after {
+  clear: both;
+}
+
+
+.clearfix {
+  zoom: 1;
+}
+
+
+
+			body {
+				color: #ffffff;
+				background: #413f3b url("http://www.htmlandcssbook.com/code-samples/chapter-15/images/bg.jpg");
+				font-family: Georgia, "Times New Roman", Times, serif;
+				font-size: 90%;
+				margin: 0px;
+				text-align: center;}
+			a {
+				color: #b5c1ad;
+				text-decoration: none;}
+			a:hover {
+				color: #ffffff;}
+			.header {
+				background-image: url("http://www.htmlandcssbook.com/code-samples/chapter-15/images/bg-header.jpg");
+				padding: 0px 0px 0px 0px;
+				height: 100px;
+				position: fixed;
+				top: 0px;
+				width: 100%;
+				z-index: 50;}
+			.nav {
+				float: right;
+				font-family: QuicksandBook, Helvetica, Arial, sans-serif;
+				padding: 45px 0px 0px 0px;
+				text-align: right;}
+			.wrapper {
+				width: 960px;
+				margin: 0px auto;
+				background-image: url("http://www.htmlandcssbook.com/code-samples/chapter-15/images/bg-triangle.png");
+				background-repeat: no-repeat;
+				background-position: 0px 0px;
+				text-align: left;}
+			.logo {
+				margin-bottom: 20px;}
+			h1, h2 {
+				font-family: QuicksandBook, Helvetica, Arial, sans-serif;
+				font-weight: normal;
+				text-transform: uppercase;}
+			h1 {
+				font-size: 240%;
+				margin-top: 140px;}
+			.date {
+				font-family: Arial, Helvetica, sans-serif;
+				font-size: 75%;
+				color: #b5c1ad;}
+			.intro {
+				clear: left;
+				font-size: 90%;
+				line-height: 1.4em;}
+			.main-story {
+				background-image: url("http://www.htmlandcssbook.com/code-samples/chapter-15/images/triangles.png");
+				background-repeat: no-repeat;
+				background-position: 122px 142px;
+				height: 570px;}
+			.more-articles {
+				border-top: 1px solid #ffffff;
+				padding: 10px;}
+			.more-articles p {
+				border-bottom: 1px solid #807c72;
+				padding: 5px 0px 15px 0px;
+				font-size: 80%;}
+			.more-articles p:last-child {
+				border-bottom: none;}
+			.footer {
+				clear: both;
+				background: rgba(0, 0, 0, 0.2);
+				padding: 5px 10px;}
+			.footer p {
+				font-family: Helvetica, Arial, sans-serif;
+				font-size: 75%;
+				text-align: right;}
+			.footer a {
+				color: #807c72;}
 		</style>
 	</head>
 	<body>
-		<div def="hatesme" abc="chris">
-			asdgadsgdsag
+		<div class="header">
+			<div class="container_12">
+				<div class="grid_5">
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/logo.png" alt="Pedal Faster - The modern bicycle magazine" width="216" height="37" class="logo" />
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/header-triangle.png" alt="" width="116" height="100" />
+				</div>
+				<div class="nav grid_7">
+					<a href="">home</a> / <a href="">news</a> / <a href="">archives</a> / <a href="">about</a> / <a href="">contact</a>
+				</div>
+			</div>
+		</div>
+		<div class="wrapper">
+			<div class="main-story container_12">
+				<div class="grid_6 push_6">
+					<h1><a href="">Fixed Gear Forever</a></h1>
+				</div>
+				<div class="intro grid_3 push_9">
+					<p class="date">16 APRIL 2011</p>
+					<p>The veloheld combines minimalist design with superb quality. Devoid of excessive graphics and gear shift components, the veloheld product range delights us with its beauty and simplicity. The black and white (yin and yang?) bicycles feature a short wheelbase, a single gear and a narrow handlebar... All you need to explore the city streets.</p>
+					<p>For those who want to create their bike themselves, the veloheld frames come in three sizes and two colours and are the perfect starting point. <a href="">Continue reading...</a></p>
+				</div>
+			</div><!-- .main-story -->
+			<div class="more-articles container_12">
+				<h2 class="grid_12"><a href="">More Articles</a></h2>
+				<div class="grid_3">
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/more1.jpg" alt="The road ahead" width="220" height="125" />
+					<p><a href="">On the Road: From the fixed gear fanatic's point of view</a></p>
+					<p><a href="">Brand History: Pashley Cycles - hand-built in England</a></p>
+					<p><a href="">Frame Wars: Innovations in cycle manufacture and repair</a></p>
+				</div>
+				<div class="grid_3">
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/more2.jpg" alt="Sketchbook" width="220" height="125" />
+					<p><a href="">Touring Diary: A sketchbook in your basket</a></p>
+					<p><a href="">Top Ten Newcomers for 2012: A peek at what's to come</a></p>
+					<p><a href="">InnerTube: The best cycling videos on the web</a></p>
+				</div>
+				<div class="grid_3">
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/more3.jpg" alt="Repair shop sign" width="220" height="125" />
+					<p><a href="">Product Review: All baskets were not created equal</a></p>
+					<p><a href="">Going Public: Out &amp; about with the founder of Public</a></p>
+					<p><a href="">Cycle Lane Defence: Know your rights</a></p>
+				</div>
+				<div class="grid_3">
+					<img src="http://www.htmlandcssbook.com/code-samples/chapter-15/images/more4.jpg" alt="Schwinn Spitfire" width="220" height="125" />
+					<p><a href="">Bicycle Hall of Fame: The 1958 Schwinn Spitfire</a></p>
+					<p><a href="">Reader Survey: Share your thoughts with us!</a></p>
+					<p><a href="">Chain Gang: The evolution of the humble bike chain</a></p>
+				</div>
+			</div><!-- .more-articles -->
+		</div><!-- .wrapper -->
+		<div class="footer clearfix">
+			<div class="container_12">
+				<p class="grid_12"><a href="">Legal Information</a> | <a href="">Privacy Policy</a> | <a href="">Copyright &copy; Pedal Faster 2011</a></p>
+			</div>
 		</div>
 	</body>
 </html>

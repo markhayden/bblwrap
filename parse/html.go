@@ -11,12 +11,13 @@ import (
 type Html struct {
 	Tags []Tag
 	Body string
+	TempParent   []string
 }
 
 type Tag struct {
 	Origin    string
 	Token     string
-	Parent    string
+	Parent    []string
 	Outbound  string
 	Selectors []Selector
 }
@@ -35,7 +36,7 @@ func stringifyInlineStyle(d []Declaration) string {
 	return fmt.Sprintf(`style="%s"`, strings.TrimSpace(inlineOut))
 }
 
-func processHtml(body string, styles []Style) {
+func processHtml(body string, styles []Style) string {
 	// clean up body
 	body = prettyHtml(body)
 
@@ -44,6 +45,7 @@ func processHtml(body string, styles []Style) {
 	closingElementRegex, _ := regexp.Compile(`<\/`)
 	inlineStyleRegex, _ := regexp.Compile(`style\=\"\b[^>]*\"`)
 	skipTokenRegex, _ := regexp.Compile(`<(\/|img|area|base|br|col|command|embed|hr|input|keygen|link|meta|param|source|track|wbr)`)
+	// isBodyRegex, _ := regexp.Compile(`<(\/body|body)`)
 	tags := elementRegex.FindAllString(body, -1)
 	m := Html{
 		Body: body,
@@ -51,43 +53,49 @@ func processHtml(body string, styles []Style) {
 
 	var parents []string
 	for tagKey, tagValue := range tags {
-		var token, parent string
+		var token string
 		var selectors []Selector
 		var inlineRaw Style
 
 		// handle logic for self closing and closing tags
-		if !skipTokenRegex.MatchString(tagValue) {
+		if !closingElementRegex.MatchString(tagValue) {
+			fmt.Println("adding", tagValue)
 			token = fmt.Sprintf("bblwrap-%d", tagKey)
-
-			if len(parents) > 0 {
-				parent = parents[len(parents)-1]
-			}
-
-			parents = append(parents, token)
 			selectors, inlineRaw = parseTag(tagValue)
-
 			m.Body = strings.Replace(m.Body, tagValue, fmt.Sprintf("<%s>", token), 1)
+			parents = append(parents, token)
 		}
 
 		// handle parent logic on closing tag
 		if closingElementRegex.MatchString(tagValue) && len(parents) > 0 {
+			fmt.Println("closing", tagValue)
 			parents = parents[:len(parents)-1]
 		}
+
+		// if token != "" && parents[len(parents)-1] != token {
+		// 	fmt.Println("does this ever run")
+		// 	parents = append(parents, token)
+		// }
 
 		t := Tag{
 			Origin:    tagValue,
 			Token:     token,
-			Parent:    parent,
+			Parent:    parents,
 			Selectors: selectors,
 		}
 
-		if token != "" && parents[len(parents)-1] != token {
-			parents = append(parents, token)
+		// handle removing the self closing stuff from the main parent slice
+		if !closingElementRegex.MatchString(tagValue) && skipTokenRegex.MatchString(tagValue) && len(parents) > 0 {
+			fmt.Println("killing", tagValue)
+			parents = parents[:len(parents)-1]
 		}
+
+		// add to master tags slice
+		m.Tags = append(m.Tags, t)
 
 		// handle logic for self closing and closing tags
 		var styleString string
-		if !skipTokenRegex.MatchString(tagValue) {
+		if !closingElementRegex.MatchString(tagValue) {
 			match, inline := m.fullfilled(t, styles, inlineRaw)
 			if match {
 				styleString = stringifyInlineStyle(inline)
@@ -95,6 +103,7 @@ func processHtml(body string, styles []Style) {
 
 			currentInline := inlineStyleRegex.FindString(tagValue)
 			tagReplace := tagValue
+
 			if currentInline != "" {
 				// an inline style exists so we need to replace it
 				tagReplace = strings.Replace(tagReplace, currentInline, styleString, 1)
@@ -104,10 +113,8 @@ func processHtml(body string, styles []Style) {
 			}
 
 			// finally replace the string in the body
-			t.Outbound = tagReplace
+			m.Tags[len(m.Tags)-1].Outbound = tagReplace
 		}
-
-		m.Tags = append(m.Tags, t)
 	}
 
 	// replace all the tags and prepare output
@@ -115,74 +122,28 @@ func processHtml(body string, styles []Style) {
 		m.Body = strings.Replace(m.Body, "<"+tag.Token+">", tag.Outbound, -1)
 	}
 
-	// temporary output
-	// fmt.Println("")
 	// fmt.Println(util.PrettyJson(styles))
-
 	// fmt.Println("")
 	// fmt.Println(util.PrettyJson(m.Tags))
-
-	fmt.Println("")
-	fmt.Println("Output")
-	fmt.Println(m.Body)
-
 	// fmt.Println(m.Body)
 	// fmt.Println(util.PrettyJson(m))
+
+	return m.Body
 }
 
 func (m *Html) fullfilled(climber Tag, mountain []Style, inline Style) (bool, []Declaration) {
-	// iterate over all styles
+	// prepare defaults
 	var fStyles []Style
+
+	// loop through all css to see which styles to add
 	for _, mtn := range mountain {
-		matchCount := 0
-		rolloverCount := false
+		// loop through all selectors on style in reverse order, only loop if we match as all selectors need to be fulfilled
+		isFulfilled := m.checkSelectorFulfillment(mtn, climber)
 
-		// fmt.Println(util.PrettyJson(mtn))
-
-		// iterate the selectors of each style in reverse order all selectors must be fulfilled
-		// to validate a style, on each new style the counts should be reset
-		for i := len(mtn.Selectors) - 1; i >= 0; i-- {
-			v := mtn.Selectors[i]
-
-			if !rolloverCount {
-				matchCount = 0
-			}
-
-			for _, c := range climber.Selectors {
-				if c.Value == v.Value && c.Type == v.Type && c.Key == v.Key {
-					if v.Element != "" {
-						if v.Element == c.Element {
-							matchCount++
-							break
-						}
-					} else {
-						matchCount++
-						break
-					}
-				}
-			}
-
-			if matchCount == len(mtn.Selectors) {
-				// fuck yah, it was fulfilled
-				fStyles = append(fStyles, mtn)
-				break
-			} else if matchCount > 0 && matchCount < len(mtn.Selectors) {
-				// if there is no parent continue, not a match
-				if climber.Parent == "" {
-					continue
-				}
-
-				// begin cascading through parents
-				parent, err := m.findTagByToken(climber.Parent)
-				if err != nil {
-					continue
-				}
-
-				climber = parent
-				rolloverCount = true
-			} else {
-				rolloverCount = false
-			}
+		// if the style is fulfilled add it to the master fstyle array for declaration processing later
+		if isFulfilled {
+			//fmt.Printf("++++++++++ FULFILLED: %v | %v \n", mtn.Origin, climber.Origin)
+			fStyles = append(fStyles, mtn)
 		}
 	}
 
@@ -190,8 +151,68 @@ func (m *Html) fullfilled(climber Tag, mountain []Style, inline Style) (bool, []
 		return true, declarationBattle(fStyles, inline)
 	}
 
+	//fmt.Printf("---------- NOT FULFILLED: %v\n", climber.Origin)
 	return false, []Declaration{}
 }
+
+
+func (m *Html) checkSelectorFulfillment(style Style, tag Tag) bool {
+	m.TempParent = tag.Parent
+	// iterate the selectors of each style in reverse order all selectors must be fulfilled
+	// to validate a style, on each new style the counts should be reset
+	for i := len(style.Selectors) - 1; i >= 0; i-- {
+		// which selector are we testing on this loop
+		ms := style.Selectors[i]
+
+		// if any of the individual selectors are not fulfilled then return false, do not apply to tag
+		isOkToContinue := m.doSelectorsMatch(ms, tag, len(style.Selectors))
+		if !isOkToContinue {
+			return false
+		}
+	}
+
+	return true
+}
+
+
+func (m *Html) doSelectorsMatch(styleSel Selector, tag Tag, l int) bool {
+
+	//fmt.Println(util.PrettyJson(tag))
+
+	// loop through all parents on the style looking for a match
+	// as we loop, remove them from the temp slice so we dont iterate over them
+	// more than one time
+	for i := len(m.TempParent) - 1; i >= 0; i-- {
+		subject, err := m.findTagByToken(m.TempParent[i])
+		if err != nil {
+			fmt.Println("Could not locate that parent. Failed.")
+			return false
+		}
+
+		// pop off parent we are looping
+		m.TempParent = m.TempParent[:len(m.TempParent)-1]
+
+		for _, tagSel := range subject.Selectors {
+			if tagSel.Value == styleSel.Value && tagSel.Type == styleSel.Type && tagSel.Key == styleSel.Key {
+				// in the case of element.class, make sure we fulfill all demands
+				if styleSel.Element != "" {
+					if styleSel.Element == tagSel.Element {
+						return true
+					}
+				} else {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return false
+}
+
+
+
+
+
 
 func (m *Html) findTagByToken(token string) (Tag, error) {
 	for _, t := range m.Tags {
@@ -254,6 +275,7 @@ func parseTag(tag string) ([]Selector, Style) {
 	el := elementRegex.FindStringSubmatch(tag)
 	if len(el) != 2 {
 		fmt.Println("Invalid Tag")
+		fmt.Println(tag)
 		return master, Style{}
 	}
 
