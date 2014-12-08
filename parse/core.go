@@ -1,11 +1,10 @@
 package parse
 
 import (
-	"fmt"
-	"io/ioutil"
+	"flag"
 	"regexp"
-	//"strings"
-	//"github.com/markhayden/bblwrap/util"
+
+	u "github.com/araddon/gou"
 )
 
 type Style struct {
@@ -35,21 +34,30 @@ type Declaration struct {
 	Important bool
 }
 
-func Kickoff() {
+var logLevel *string = flag.String("logging", "info", "Which log level: [debug,info,warn,error,fatal]")
+
+func MakeInline(source string) string {
+	// set up logging
+	flag.Parse()
+	u.SetupLogging(*logLevel)
+
+	// prepare main regex to parse incoming file
 	bodyRegex, _ := regexp.Compile(`<body([^>]+)?>([\s\S]*)<\/body>`)
 	stylesRegex, _ := regexp.Compile(`<style([^>]+)?>(?P<styles>[\s\S]+)<\/style>`)
 
-	file, _ := loadLocalFile("sample.html")
+	// clean up spacing, comments, breaks and other goofy things with style string
+	source = prettyStyles(source)
 
-	file = prettyStyles(file)
-
-	htmlStyleSlice := stylesRegex.FindAllStringSubmatch(file, -1)
+	// parse the styles
+	htmlStyleSlice := stylesRegex.FindAllStringSubmatch(source, -1)
 	s := parseStyles(htmlStyleSlice[0][len(htmlStyleSlice[0])-1])
 
-	htmlBodySlice := bodyRegex.FindAllString(file, -1)
-	data := []byte(`<!DOCTYPE html><html>`+processHtml(htmlBodySlice[0], s)+`</html>`)
-	err := ioutil.WriteFile("output.html", data, 0644)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// parse and inline the html
+	htmlBodySlice := bodyRegex.FindAllString(source, -1)
+
+	// add doctype and closing tag to payload
+	output := `<!DOCTYPE html><html>` + processHtml(htmlBodySlice[0], s) + `</html>`
+
+	// final inlined styles, browser ready
+	return output
 }

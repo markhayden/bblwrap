@@ -1,44 +1,85 @@
 package parse
 
 import (
+	"errors"
 	"fmt"
-	// "io/ioutil"
-	"github.com/markhayden/bblwrap/util"
 	"regexp"
 	"sort"
 	"strings"
-	"errors"
-	//"reflect"
+
+	u "github.com/araddon/gou"
+	"github.com/markhayden/bblwrap/util"
 )
 
-// praseStyles transforms a full string of styles into individual definitions
+type ParseDefinition struct {
+	name  string
+	descr string
+	rx    *regexp.Regexp
+}
+
+var (
+	// definitions holds the master definitions for each of the supported selector types
+	definitions = map[string]ParseDefinition{
+		"attr": ParseDefinition{
+			name:  "Attribute Selector",
+			descr: "test",
+			rx:    regexp.MustCompile(`\[`),
+		},
+
+		"id": ParseDefinition{
+			name:  "Id Selector",
+			descr: "test",
+			rx:    regexp.MustCompile(`^#`),
+		},
+
+		"class": ParseDefinition{
+			name:  "Class Selector",
+			descr: "test",
+			rx:    regexp.MustCompile(`^\.`),
+		},
+
+		"element": ParseDefinition{
+			name:  "Element Selector",
+			descr: "test",
+			rx:    regexp.MustCompile(`^\S+\.\S+$`),
+		},
+
+		"wildcardElement": ParseDefinition{
+			name:  "Wildcard Element Selector",
+			descr: "test",
+			rx:    regexp.MustCompile(`^\*$`),
+		},
+	}
+)
+
+// praseStyles transforms a full string of styles into various stucts and definiions for matching
+// and ultimately reconstruction into an inline style for a specific html tag
 func parseStyles(subject string) []Style {
-	// clean up the string
+	// clean up the style string be removing goofy characters, comments, line breaks, etc.
 	subject = prettyStyles(subject)
 
-	// split everything up into a massive slice for processing
-	// allSplit := regexp.MustCompile("{|}").Split(subject, -1)
+	// break the master style string up into a slice of intidivual styles for processing
 	allSplit := strings.Split(subject, "}")
 
 	var parsed []Style
 	for pos, val := range allSplit {
 		// if the split results in any empty strings skip them
 		if val == "" {
+			u.Debugf("style split resulted in empty string, skipping: %d", pos)
 			continue
 		}
 
 		// separate the selectors from declarations
 		selDecSplit := strings.Split(val, "{")
 		if len(selDecSplit) != 2 {
-			fmt.Println("Invalid CSS")
+			u.Errorf("invalid CSS, could not separate selectors from declarations: %s", subject)
 		}
 
-		// handle multiple sets of selectors
-		//fmt.Println(selDecSplit[0])
-
+		// if there are multiple selectors associated with a single set of declarations break them apart
+		// so that we can analyze them as the individuals that they are
 		multiSelSplit := strings.Split(selDecSplit[0], ",")
 		if len(multiSelSplit) == 0 {
-			fmt.Println("More Invalid CSS")
+			u.Errorf("invalid CSS, could not separate declarations from values: %s", subject)
 		}
 
 		// iterate over selectors and create new style structs
@@ -47,51 +88,41 @@ func parseStyles(subject string) []Style {
 				Origin:          fmt.Sprintf("%s}", val),
 				RawSelectors:    strings.TrimSpace(sel),
 				RawDeclarations: selDecSplit[1],
-				Position: pos,
+				Position:        pos,
 			}
 
+			// break the individual selectors out so that we can determine if it should be applied to an html tag
 			err := s.parseSelectors()
 			if err != nil {
-				fmt.Println("Invalid Selectors")
+				u.Errorf("invalid selector found: %v", sel)
 			}
 
-			err = s.parseDeclarations()
-			if err != nil {
-				fmt.Printf("Invalid Declaration: %v\n", err)
-			}
+			// break the individual declarations out so that we can match, update and output them
+			s.parseDeclarations()
 
+			// add the successfully parsed style to the master slice
 			parsed = append(parsed, s)
 		}
 	}
 
-	// sort styles by specificity
+	// sort styles ascendin by specificity score so that definition replacement works
 	sort.Sort(styleBySpecificity(parsed))
-
-	// dedupe the final parsed styles and alert of potential code goofs
-	dedupeStyles(parsed)
 
 	return parsed
 }
 
-// parseSelectors handles primary parsing of selector for processing
-// calculates specificity score and sorts descending order
+// parseSelectors handles primary parsing of selector for processing calculates specificity
+// score, selector type, key, values, etc and rolls is up into a master definition
 func (s *Style) parseSelectors() error {
 	// split individual selectors
 	split := strings.Split(s.RawSelectors, " ")
 
-	// base score
+	// reset the specificity score upon start
 	specificity := 0
-
-	// selector type definitions
-	attr := regexp.MustCompile(`\[`)
-	id := regexp.MustCompile(`^#`)
-	class := regexp.MustCompile(`^\.`)
-	elementClass := regexp.MustCompile(`^\S+\.\S+$`)
-	// https://docs.google.com/a/markhayden.me/spreadsheets/d/19eMZ9bPB7rDsWnT0UZQFO5q7UxUXPjmhvepR7Edf--Y/edit#gid=0
 
 	var selectors []Selector
 	for _, o := range split {
-		// if the origin is empty string we dont care about it
+		// if the origin is empty we have nothing to define so continue to next selector
 		if o == "" {
 			continue
 		}
@@ -99,32 +130,40 @@ func (s *Style) parseSelectors() error {
 		// set empty type
 		var sType, sKey, sElement, sVal string
 
+		// determine what type of selector we are using and properly set defintion
 		switch {
-		case attr.MatchString(o):
+		case definitions["attr"].rx.MatchString(o):
 			sType, sElement, sKey, sVal = parseAdvancedAttrSelector(o)
 			specificity = specificity + 1000
-		case id.MatchString(o):
+		case definitions["id"].rx.MatchString(o):
 			sType = "id"
 			sKey = "id"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 100
-		case elementClass.MatchString(o):
+		case definitions["element"].rx.MatchString(o):
 			sType = "class"
 			sKey = "class"
 			sElement = strings.Split(o, ".")[0]
 			sVal = strings.Split(o, ".")[1]
 			specificity = specificity + 11
-		case class.MatchString(o):
+		case definitions["class"].rx.MatchString(o):
 			sType = "class"
 			sKey = "class"
 			sVal = util.StripFirst(o)
 			specificity = specificity + 10
+		case definitions["wildcardElement"].rx.MatchString(o):
+			sType = "wildcard"
+			sKey = "*"
+			sVal = "*"
+			specificity = specificity + 0
 		default:
 			sType = "element"
 			sKey = o
 			sVal = o
 			specificity = specificity + 1
 		}
+
+		u.Debugf("found %s: element:%s, key:%s, value:%s, specificity:%d | %v", sType, sElement, sKey, sVal, specificity, o)
 
 		s := Selector{
 			Origin:  o,
@@ -134,34 +173,35 @@ func (s *Style) parseSelectors() error {
 			Value:   strings.TrimSpace(sVal),
 		}
 
-		//fmt.Println(util.PrettyJson(s))
-
 		selectors = append(selectors, s)
 	}
 
-	// set selectors
+	// set the selectors
 	s.Selectors = selectors
 
-	// set depth
+	// set the depth (number)
 	s.Depth = len(s.Selectors)
 
-	// set specificity score
+	// set the specificity score
 	s.Specificity = specificity
 
 	return nil
 }
 
+// parseAdvancedAttrSelector handles the primary parsing of advanced attribute selectors such as div[name="taco"] & div[name]
 func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 	var sType, sElement, sKey, sVal string
 
+	// need to handle both div[name="taco"] & div[name] so we use two regex definitions for accuracy
 	attrElementValue, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)=\"(?P<value>[a-zA-Z0-9\-\_]+)\"\]`)
 	attrElement, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)\]`)
 
-	// check if we have both a attribute and a value
+	// check if the string has both an attribute and a value to determine how to parse
 	if attrElementValue.MatchString(s) {
+		// found both an attribute and a value
 		parsed := attrElementValue.FindStringSubmatch(s)
 		if len(parsed) < 4 {
-			fmt.Println("Failed to parse advanced selector.")
+			u.Errorf("failed to parse advanced selector: %v", s)
 			return sType, sElement, sKey, sVal
 		}
 
@@ -169,10 +209,10 @@ func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 		sKey = parsed[2]
 		sVal = parsed[3]
 	} else {
-		// only have an attribute so run through defaults
+		// found only an attribute
 		parsed := attrElement.FindStringSubmatch(s)
 		if len(parsed) < 3 {
-			fmt.Println("Failed to parse advanced selector (key only).")
+			u.Errorf("failed to parse advanced selector: %v", s)
 			return sType, sElement, sKey, sVal
 		}
 
@@ -180,7 +220,8 @@ func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 		sKey = parsed[2]
 	}
 
-	// most likely it will be an attr tag but if its id or class, smack them with a stick for yucky code and handle it
+	// it is likely that this will be an attribute but in the off chance a user has defined
+	// something like div[class="something"] handle setting the proper type
 	switch {
 	case sKey == "class":
 		sType = "class"
@@ -193,7 +234,7 @@ func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 	return sType, sElement, sKey, sVal
 }
 
-// parseDeclarations handles parsing the declaration string to a struct
+// parseDeclarations handles the primary parsing of style declarations
 func (s *Style) parseDeclarations() error {
 	// split individual selectors
 	split := strings.Split(s.RawDeclarations, ";")
@@ -211,11 +252,8 @@ func (s *Style) parseDeclarations() error {
 		// split properties from values
 		b := strings.SplitN(o, ":", 2)
 		if len(b) != 2 {
-			msg := fmt.Sprintf("Invalid declaration: %v", o)
-			if err := addToLog(msg); err != nil {
-				fmt.Println(err)
-			}
-
+			msg := fmt.Sprintf("Invalid declaration found: %v | %s", o, s.Origin)
+			u.Errorf(msg)
 			return errors.New(msg)
 		}
 
@@ -227,7 +265,7 @@ func (s *Style) parseDeclarations() error {
 
 		d := Declaration{
 			Origin:    o,
-			Property:  strings.TrimSpace(b[0]), // make sure all properties have white space removed
+			Property:  strings.TrimSpace(b[0]),                                 // make sure all properties have white space removed
 			Value:     strings.Replace(strings.TrimSpace(b[1]), "\"", "'", -1), // make sure all values use single quotes and have no white space
 			Important: important.MatchString(o),
 		}
@@ -241,7 +279,8 @@ func (s *Style) parseDeclarations() error {
 	return nil
 }
 
-// prettyStyles does some cleanup on the main style strign to force consistency
+// prettyStyles does some cleanup on a raw string of CSS. it will clean up hanging semi-colons, whitespace
+// and ensure that all the tags are formatted the same way to improve accuracy of parsing.
 func prettyStyles(subject string) string {
 	replace := map[string]string{
 		"};": "}",
@@ -252,6 +291,12 @@ func prettyStyles(subject string) string {
 		"  ": "",
 	}
 
+	// handle cleaning out the comments
+	comments := regexp.MustCompile(`\/\*[^*]+\*\/`).FindAllString(subject, -1)
+	for _, c := range comments {
+		replace[c] = ""
+	}
+
 	for fin, rep := range replace {
 		subject = strings.Replace(subject, fin, rep, -1)
 	}
@@ -259,35 +304,14 @@ func prettyStyles(subject string) string {
 	return subject
 }
 
-// dedupeStyles does some cleanup on the main style strign to force consistency
-func dedupeStyles(dedupe []Style){
-	// break the styles out into slices by specificity
-	sortMe := map[int][]int{}
-	for _, style := range dedupe{
-		sortMe[style.Specificity] = append(sortMe[style.Specificity], style.Position)
-	}
-	//fmt.Println(sortMe)
-
-	// dedupe the individual slices
-
-	// reconstruct everything after final sort for output
-	// var out []Style
-	// for _, appendMe := range sortMe {
-	// 	sort.Sort(styleByPosition(appendMe))
-	// 	out = append(out, appendMe...)
-	// }
-
-	//return out
-}
-
-// styleBySpecificity handles sorting the slice of styles by specificity descending
+// styleBySpecificity handles sorting the slice of styles by specificity ascending
 type styleBySpecificity []Style
 
 func (s styleBySpecificity) Len() int           { return len(s) }
 func (s styleBySpecificity) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s styleBySpecificity) Less(i, j int) bool { return s[i].Specificity < s[j].Specificity }
 
-// styleByPosition handles sorting the slice of styles by specificity descending
+// styleByPosition handles sorting the slice of styles by load order (position) ascending
 type styleByPosition []Style
 
 func (s styleByPosition) Len() int           { return len(s) }

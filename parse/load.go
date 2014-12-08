@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 )
 
-// loadLocalFile loads content from local path and returns as cleaned up string
+// loadLocalFile opens a local file and returns the body of said file
 func loadLocalFile(tmp string) (string, error) {
 	content, err := ioutil.ReadFile(tmp)
 	if err != nil {

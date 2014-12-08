@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+	body{background-color:#999; font-size:15px;}
+	.one {background-color:red;}
+	.one .two {background-color:green;}
+	.one .two .three {background-color:blue;}
+</style>
+</head>
+<body>
+	<div class="one">
+		i should have a red background
+	</div>
+
+	<div class="two">
+		i should not have a background
+	</div>
+
+	<div class="three">
+		i should not have a background
+	</div>
+
+	<div class="one">
+		i should have a red background
+		<div class="two">
+			i should have a green background
+		</div>
+	</div>
+
+	<div class="one">
+		i should have a red background
+		<div class="two">
+			i should have a green background
+			<div class="three">
+				i should have a blue background
+			</div>
+		</div>
+	</div>
+</body>
+</html>
