@@ -19,6 +19,27 @@ func writeFile(file, payload string) {
 
 func TestCss(t *testing.T) {
 	var fileName, file, payload, confirm string
+
+	// *************************************************************
+	// TEST ELEMENTS : elements.html
+	// *************************************************************
+	fileName = "elements.html"
+	file, _ = loadLocalFile("tests/case/" + fileName)
+	payload = MakeInline(file)
+	confirm, _ = loadLocalFile("tests/confirm/" + fileName)
+	assert.Equal(t, confirm, payload)
+	util.PassLog(fmt.Sprintf("inlined styles for %s successfully", fileName))
+
+	// *************************************************************
+	// TEST ELEMENTS : elements.html
+	// *************************************************************
+	fileName = "elementdotclass.html"
+	file, _ = loadLocalFile("tests/case/" + fileName)
+	payload = MakeInline(file)
+	confirm, _ = loadLocalFile("tests/confirm/" + fileName)
+	assert.Equal(t, confirm, payload)
+	util.PassLog(fmt.Sprintf("inlined styles for %s successfully", fileName))
+
 	// *************************************************************
 	// TEST SINGLE CLASS : singleclass.html
 	// *************************************************************
@@ -59,5 +80,27 @@ func TestCss(t *testing.T) {
 	assert.Equal(t, confirm, payload)
 	util.PassLog(fmt.Sprintf("inlined styles for %s successfully", fileName))
 
+	// *************************************************************
+	// TEST VARIOUS THIGNS WITH IMAGE : mixwithimages.html
+	// *************************************************************
+	fileName = "mixwithimages.html"
+	file, _ = loadLocalFile("tests/case/" + fileName)
+	payload = MakeInline(file)
+	confirm, _ = loadLocalFile("tests/confirm/" + fileName)
+	assert.Equal(t, confirm, payload)
+	util.PassLog(fmt.Sprintf("inlined styles for %s successfully", fileName))
+
 	// writeFile("tests/confirm/" + fileName, payload)
+}
+
+func TestCase(t *testing.T) {
+	var fileName, file, payload string
+
+	// *************************************************************
+	// TEST ELEMENTS : elements.html
+	// *************************************************************
+	fileName = "nth.html"
+	file, _ = loadLocalFile("tests/case/" + fileName)
+	payload = MakeInline(file)
+	writeFile("tests/confirm/"+fileName, payload)
 }

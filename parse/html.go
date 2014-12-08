@@ -63,6 +63,7 @@ func processHtml(body string, styles []Style) string {
 
 	// process each html tag found and tokenize
 	var parents []string
+	siblingCount := make(map[string]int)
 	for tagKey, tagValue := range tags {
 		var token string
 		var selectors []Selector
@@ -75,6 +76,13 @@ func processHtml(body string, styles []Style) string {
 			selectors, inlineRaw = parseTag(tagValue)
 			m.Body = strings.Replace(m.Body, tagValue, fmt.Sprintf("<%s>", token), 1)
 			parents = append(parents, token)
+
+			// maintain the sibling count so that we can handle the advanced selectors (nth)
+			// increments the account for each new element on the parent
+			if len(parents) > 1 {
+				siblingCount[parents[len(parents)-2]] = siblingCount[parents[len(parents)-2]] + 1
+			}
+
 		}
 
 		// if it is a closing tag make sure we remove the tag that it is in face closing from parent tracking
@@ -125,6 +133,8 @@ func processHtml(body string, styles []Style) string {
 			m.Tags[len(m.Tags)-1].Outbound = tagReplace
 		}
 	}
+
+	fmt.Println(siblingCount)
 
 	// replace all the tokens with shiny new inlined styles
 	for _, tag := range m.Tags {
