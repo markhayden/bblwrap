@@ -17,6 +17,80 @@ type ParseDefinition struct {
 	rx    *regexp.Regexp
 }
 
+/*****************************************************************
+	NOTES:
+
+	http://www.smashingmagazine.com/2009/08/17/taming-advanced-css-selectors/
+	http://kimblim.dk/css-tests/selectors/
+
+	✓ .intro
+	✓ #Lastname
+	✓ .intro, #Lastname
+	✓ h1
+	✓ h1, p
+	✓ div p
+	✓ *
+	✓ [id]
+	✓ [id=my-Address] // The attribute has to have the exact value specified
+	✓ [id$=ess] // The attribute’s value ends with the specified value.
+	✓ [id|=my] // The attribute’s value is exactly “value” or starts with the word “value” and is immediately followed by “-“, so it would be “value-“.
+	✓ [id^=L] // The attribute’s value starts with the specified value.
+	✓ [title~=beautiful] // The attribute’s value needs to be a whitespace separated list of words (for example, class=”title featured home”), and one of the words is exactly the specified value.
+	✓ [id*=s] // The attribute’s value contains the specified value.
+
+	div > p // only effects direct children
+	ul + h3 // adjacent sibling selector, so any h3 that is preceeded by a ul
+	ul ~ table // general sibling selector, so any table that has a ul anywhere before it within the same tag
+
+	p::first-letter
+	p::first-line
+	p.description::before
+	p.description::after
+
+	tr:nth-child(even) // every child that is an even number
+	tr:nth-child(odd) // every child that is an odd number
+	li:nth-child(1) // the first child
+	li:nth-last-child(1) // the last child
+	p:first-child
+	p:first-of-type
+	p:last-child
+	p:last-of-type
+	li:nth-of-type(2)
+	li:nth-last-of-type(2)
+	ul > li:first-child
+	ul li:nth-last-child(odd)
+	ul li:eq(0)
+	ul li:gt(0)
+	ul li:lt(2)
+	li:not(:eq(1))
+	.post > p:last-child
+	b:only-child
+	h3:only-of-type
+
+	ul li:nth-last-of-type(-n+4)
+	ul li:nth-child(3n+4)
+	ul li:nth-child(3n)
+	ul li:nth-child(-n+4)
+
+	#sidebar .box:empty
+	h2:target
+	p:lang(it)
+	:root
+	:checked
+	:disabled
+	:enabled
+	:empty
+	:focus
+	a:link
+	a:visited
+	a:hover
+	a:active
+	input:in-range
+	input:out-of-range
+	input:invalid
+	input:valid
+*****************************************************************/
+
 var (
 	// definitions holds the master definitions for each of the supported selector types
 	definitions = map[string]ParseDefinition{
@@ -128,47 +202,53 @@ func (s *Style) parseSelectors() error {
 		}
 
 		// set empty type
-		var sType, sKey, sElement, sVal string
+		var sType, sKey, sRegex, sElement, sVal string
 
 		// determine what type of selector we are using and properly set defintion
 		switch {
 		case definitions["attr"].rx.MatchString(o):
-			sType, sElement, sKey, sVal = parseAdvancedAttrSelector(o)
+			sType, sElement, sRegex, sKey, sVal = parseAdvancedAttrSelector(o)
 			specificity = specificity + 1000
 		case definitions["id"].rx.MatchString(o):
 			sType = "id"
 			sKey = "id"
 			sVal = util.StripFirst(o)
+			sRegex = sVal
 			specificity = specificity + 100
 		case definitions["element"].rx.MatchString(o):
 			sType = "class"
 			sKey = "class"
 			sElement = strings.Split(o, ".")[0]
 			sVal = strings.Split(o, ".")[1]
+			sRegex = sVal
 			specificity = specificity + 11
 		case definitions["class"].rx.MatchString(o):
 			sType = "class"
 			sKey = "class"
 			sVal = util.StripFirst(o)
+			sRegex = sVal
 			specificity = specificity + 10
 		case definitions["wildcardElement"].rx.MatchString(o):
 			sType = "wildcard"
 			sKey = "*"
 			sVal = "*"
+			sRegex = sVal
 			specificity = specificity + 0
 		default:
 			sType = "element"
 			sKey = o
+			sRegex = o
 			sVal = o
 			specificity = specificity + 1
 		}
 
-		u.Debugf("found %s: element:%s, key:%s, value:%s, specificity:%d | %v", sType, sElement, sKey, sVal, specificity, o)
+		u.Debugf("found %s: element:%s, regex:%s, key:%s, value:%s, specificity:%d | %v", sType, sRegex, sElement, sKey, sVal, specificity, o)
 
 		s := Selector{
 			Origin:  o,
 			Type:    strings.TrimSpace(sType),
 			Key:     strings.TrimSpace(sKey),
+			Regex:   strings.TrimSpace(sRegex),
 			Element: strings.TrimSpace(sElement),
 			Value:   strings.TrimSpace(sVal),
 		}
@@ -189,11 +269,11 @@ func (s *Style) parseSelectors() error {
 }
 
 // parseAdvancedAttrSelector handles the primary parsing of advanced attribute selectors such as div[name="taco"] & div[name]
-func parseAdvancedAttrSelector(s string) (string, string, string, string) {
-	var sType, sElement, sKey, sVal string
+func parseAdvancedAttrSelector(s string) (string, string, string, string, string) {
+	var sType, sElement, sRegex, sKey, sVal string
 
 	// need to handle both div[name="taco"] & div[name] so we use two regex definitions for accuracy
-	attrElementValue, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)=\"(?P<value>[a-zA-Z0-9\-\_]+)\"\]`)
+	attrElementValue, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[^\=]+)=\"(?P<value>[^\"]+)\"\]`)
 	attrElement, _ := regexp.Compile(`(?P<element>[a-zA-Z0-9\-\_]+)\[(?P<attr>[a-zA-Z0-9\-\_]+)\]`)
 
 	// check if the string has both an attribute and a value to determine how to parse
@@ -202,20 +282,42 @@ func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 		parsed := attrElementValue.FindStringSubmatch(s)
 		if len(parsed) < 4 {
 			u.Errorf("failed to parse advanced selector: %v", s)
-			return sType, sElement, sKey, sVal
+			return sType, sElement, sRegex, sKey, sVal
 		}
 
 		sElement = parsed[1]
-		sKey = parsed[2]
 		sVal = parsed[3]
+
+		// we need to check the key for ($,|,^,~,*) manipulators and set the regex string if found
+		switch {
+		case strings.Contains(parsed[2], "$"):
+			sKey = strings.Replace(parsed[2], "$", "", -1)
+			sRegex = fmt.Sprintf(`%s$`, sVal)
+		case strings.Contains(parsed[2], "|"):
+			sKey = strings.Replace(parsed[2], "|", "", -1)
+			sRegex = fmt.Sprintf(`^%s(\-+.*)?`, sVal)
+		case strings.Contains(parsed[2], "^"):
+			sKey = strings.Replace(parsed[2], "^", "", -1)
+			sRegex = fmt.Sprintf(`^%s.?`, sVal)
+		case strings.Contains(parsed[2], "~"):
+			sKey = strings.Replace(parsed[2], "~", "", -1)
+			sRegex = fmt.Sprintf(`( )?%s( )?`, sVal)
+		case strings.Contains(parsed[2], "*"):
+			sKey = strings.Replace(parsed[2], "*", "", -1)
+			sRegex = fmt.Sprintf(`^.*%s.*$`, sVal)
+		default:
+			sKey = parsed[2]
+			sRegex = sVal
+		}
 	} else {
 		// found only an attribute
 		parsed := attrElement.FindStringSubmatch(s)
 		if len(parsed) < 3 {
 			u.Errorf("failed to parse advanced selector: %v", s)
-			return sType, sElement, sKey, sVal
+			return sType, sElement, sRegex, sKey, sVal
 		}
 
+		sRegex = ""
 		sElement = parsed[1]
 		sKey = parsed[2]
 	}
@@ -231,7 +333,7 @@ func parseAdvancedAttrSelector(s string) (string, string, string, string) {
 		sType = "attr"
 	}
 
-	return sType, sElement, sKey, sVal
+	return sType, sElement, sRegex, sKey, sVal
 }
 
 // parseDeclarations handles the primary parsing of style declarations
@@ -244,13 +346,17 @@ func (s *Style) parseDeclarations() error {
 
 	var declarations []Declaration
 	for _, o := range split {
+		// trim whitespace
+		o = strings.TrimSpace(o)
+
 		// if the origin is empty string we dont care about it
-		if o == "" {
+		if o == "" || o == " " {
 			continue
 		}
 
 		// split properties from values
 		b := strings.SplitN(o, ":", 2)
+
 		if len(b) != 2 {
 			msg := fmt.Sprintf("Invalid declaration found: %v | %s", o, s.Origin)
 			u.Errorf(msg)
@@ -291,10 +397,13 @@ func prettyStyles(subject string) string {
 		"  ": "",
 	}
 
-	// handle cleaning out the comments
-	comments := regexp.MustCompile(`\/\*[^*]+\*\/`).FindAllString(subject, -1)
+	// get rid of any css comments
+	blockComment, _ := regexp.Compile(`\/\*.*?\*\/`)
+	// lineComment, _ := regexp.Compile(`\/\/.*`)
+	comments := blockComment.FindAllString(subject, -1)
+
 	for _, c := range comments {
-		replace[c] = ""
+		subject = strings.Replace(subject, c, "", -1)
 	}
 
 	for fin, rep := range replace {

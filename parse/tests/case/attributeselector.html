@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style type="text/css">
+			body{
+				background:#999;
+			}
+
+			div{
+				padding:20px;
+				margin:10px;
+			}
+
+			div[taco$="endwith"]{
+				background:blue;
+				color:#FFF;
+			}
+
+			a[href$=".pdf"]{
+				background:magenta;
+			}
+
+			div[taco|="exactish"]{
+				background:red;
+			}
+
+			div[taco^="startswith"]{
+				background:green;
+			}
+
+			div[taco*="contains"]{
+				background:gray;
+			}
+
+			div[taco="exact"]{
+				background:#FFF;
+			}
+
+			div[rel~="bonk"]{
+				background:orange;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div taco="lookatwhaticanendwith">should be blue, ends with "endwith"</div>
+		<div taco="exactish-something">should be red, exactly "exactish" with a -</div>
+		<div taco="startswithsomecoolstuff">should be green, starts with "startswith"</div>
+		<div rel="tag nofollow bonk bing">should be orange, contains one of the space separated values</div>
+		<div taco="iwillworkaslongasicontainstuff">should be gray, contains "contains"</div>
+		<div taco="exact">should be white, exact "exact" match</div>
+		<a href="monkey.pdf">monkey pdf</a><br/>
+		<a href="giraff.jpg">giraff pdf</a><br/>
+		<a href="penguin.pdf">penguin pdf</a>
+	</body>
+</html>

@@ -3,7 +3,7 @@ package parse
 import (
 	"errors"
 	"fmt"
-	//"github.com/markhayden/bblwrap/util"
+	// "github.com/markhayden/bblwrap/util"
 	"regexp"
 	"strings"
 
@@ -117,6 +117,10 @@ func processHtml(body string, styles []Style) string {
 				styleString = stringifyInlineStyle(inline)
 			}
 
+			// if inlineRaw.Origin != "" {
+			//fmt.Println(inlineRaw)
+			// }
+
 			// if we already have inline styles we need to make sure we do not drop in a duplicate so find them
 			currentInline := inlineStyleRegex.FindString(tagValue)
 			tagReplace := tagValue
@@ -134,11 +138,16 @@ func processHtml(body string, styles []Style) string {
 		}
 	}
 
-	fmt.Println(siblingCount)
-
 	// replace all the tokens with shiny new inlined styles
 	for _, tag := range m.Tags {
 		m.Body = strings.Replace(m.Body, "<"+tag.Token+">", tag.Outbound, -1)
+	}
+
+	// before we return check that there are no parents, if any exist it means that a tag is unclosed
+	// and the html is invalid...which means the output will likely be funked up
+	if len(parents) > 0 {
+		u.Errorf("HTML is invalid, all tags not closed properly: %v", parents)
+		return "Invalid HTML"
 	}
 
 	// have a beer gopher, you done did good
@@ -162,7 +171,7 @@ func (m *Html) fullfilled(climber Tag, mountain []Style, inline Style) (bool, []
 		}
 	}
 
-	if len(fStyles) > 0 {
+	if len(fStyles) > 0 || inline.Origin != "" {
 		return true, declarationBattle(fStyles, inline)
 	}
 
@@ -180,9 +189,13 @@ func (m *Html) checkSelectorFulfillment(style Style, tag Tag) bool {
 
 		// if any of the individual selectors are not fulfilled then return false, do not apply to tag
 		isOkToContinue := m.doSelectorsMatch(ms, tag, len(style.Selectors))
+
 		if !isOkToContinue {
 			return false
 		}
+
+		// so i think what is happening is its not finding a match and erroring, need to return if the length still allows
+		// so if there are enough parents to fulfill, go ahead and do so
 	}
 
 	return true
@@ -203,6 +216,8 @@ func (m *Html) doSelectorsMatch(styleSel Selector, tag Tag, l int) bool {
 		}
 
 		// pop off parent we are looping
+		// par := m.TempParent[i]
+
 		m.TempParent = m.TempParent[:len(m.TempParent)-1]
 
 		for _, tagSel := range subject.Selectors {
@@ -211,7 +226,19 @@ func (m *Html) doSelectorsMatch(styleSel Selector, tag Tag, l int) bool {
 				return true
 			}
 
-			if tagSel.Value == styleSel.Value && tagSel.Type == styleSel.Type && tagSel.Key == styleSel.Key {
+			var valRegex string
+			if styleSel.Regex != "" {
+				valRegex = styleSel.Regex
+			} else {
+				valRegex = styleSel.Value
+			}
+
+			vr := regexp.MustCompile(valRegex)
+
+			u.Debugf("Keys:%v, Types:%v, Values:%v | %s (vs) %s", tagSel.Key == styleSel.Key, tagSel.Type == styleSel.Type, vr.MatchString(tagSel.Value), tagSel.Value, styleSel.Regex)
+			u.Debugf("K: %v, %v", tagSel.Key, styleSel.Key)
+
+			if vr.MatchString(tagSel.Value) && tagSel.Type == styleSel.Type && tagSel.Key == styleSel.Key {
 				// in the case of element.class, make sure we fulfill all demands
 				if styleSel.Element != "" {
 					if styleSel.Element == tagSel.Element {
@@ -222,8 +249,10 @@ func (m *Html) doSelectorsMatch(styleSel Selector, tag Tag, l int) bool {
 				}
 			}
 		}
+
 		return false
 	}
+
 	return false
 }
 
@@ -285,7 +314,7 @@ func declarationBattle(challengers []Style, inline Style) []Declaration {
 // inline styles, etc
 func parseTag(tag string) ([]Selector, Style) {
 	elementRegex, _ := regexp.Compile(`<(?P<element>[a-zA-Z0-9\-\_]+)[ |>|/>]`)
-	defRegex, _ := regexp.Compile(`(?P<declaration>[a-zA-Z0-9\-\_]+)="(?P<value>[a-zA-Z0-9\-\_\/;:# ]+)"`)
+	defRegex, _ := regexp.Compile(`(?P<declaration>[a-zA-Z0-9\-\_]+)="(?P<value>[^\"]+)"`)
 
 	var master, element, class, id, attr []Selector
 	var inline Style
@@ -314,13 +343,17 @@ func parseTag(tag string) ([]Selector, Style) {
 			continue
 		}
 
+		var values []string
 		declaration := v[1]
 
+		// if the style is inline, remove whitespace and pass the body as string
+		// below we catch the case and append inline{} as the selector
 		if declaration == "style" {
 			v[2] = strings.Replace(v[2], "; ", ";", -1)
+			values = append(values, v[2])
+		} else {
+			values = strings.Split(v[2], " ")
 		}
-
-		values := strings.Split(v[2], " ")
 
 		for _, value := range values {
 			s := Selector{
@@ -339,7 +372,7 @@ func parseTag(tag string) ([]Selector, Style) {
 				id = append(id, s)
 			case "style":
 				s.Type = "style"
-				inline = parseStyles("inline{" + s.Value + "}")[0]
+				inline = parseStyles("bblwrap_inline{" + s.Value + "}")[0]
 			default:
 				s.Type = "attr"
 				attr = append(attr, s)
@@ -357,9 +390,10 @@ func parseTag(tag string) ([]Selector, Style) {
 	return master, inline
 }
 
-// prettyHtml does some cleanup on the main style strign to force consistency
+// prettyHtml does some cleanup on the main style string to force consistency
 func prettyHtml(subject string) string {
 	replace := map[string]string{
+		"’":  "'",
 		"\n": "",
 		"	": "",
 		"  ": "",

@@ -2,9 +2,10 @@ package parse
 
 import (
 	"flag"
-	"regexp"
-
+	// "fmt"
 	u "github.com/araddon/gou"
+	// "github.com/markhayden/bblwrap/util"
+	"regexp"
 )
 
 type Style struct {
@@ -22,6 +23,7 @@ type Selector struct {
 	Origin   string
 	Position int `json:",omitempty"`
 	Type     string
+	Regex    string
 	Key      string
 	Element  string
 	Value    string
